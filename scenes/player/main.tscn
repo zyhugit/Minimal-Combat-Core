@@ -1,0 +1,104 @@
+[gd_scene load_steps=11 format=3 uid="uid://db8op1jvmg6hs"]
+
+[ext_resource type="Script" uid="uid://b12vuqioxkdsi" path="res://scripts/camera_controller.gd" id="1_5l0vc"]
+[ext_resource type="Script" uid="uid://dlq7i4u1ym0l6" path="res://scripts/player_ui.gd" id="1_51pqh"]
+[ext_resource type="PackedScene" uid="uid://cylsh8eqvo85x" path="res://scenes/player/player.tscn" id="1_s4h7g"]
+[ext_resource type="PackedScene" uid="uid://bypsk2simfi1h" path="res://scenes/player/Enemy.tscn" id="2_5l0vc"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_4q130"]
+bg_color = Color(0.7498773, 0, 0, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_rwwc7"]
+bg_color = Color(1.353256, 0, 0, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_isen5"]
+bg_color = Color(0, 0.6247642, 0.7498773, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ll1pk"]
+bg_color = Color(0.7977378, 1.2282239, 1.353256, 1)
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_51pqh"]
+size = Vector2(50, 50)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_4q130"]
+size = Vector3(50, 0.1, 50)
+
+[node name="Node3D" type="Node3D"]
+
+[node name="PlayerUI" type="CanvasLayer" parent="."]
+script = ExtResource("1_51pqh")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="PlayerUI"]
+custom_minimum_size = Vector2(300, 80)
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 60.0
+offset_bottom = 78.0
+
+[node name="HealthBar" type="ProgressBar" parent="PlayerUI/VBoxContainer"]
+custom_minimum_size = Vector2(300, 30)
+layout_mode = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_4q130")
+theme_override_styles/fill = SubResource("StyleBoxFlat_rwwc7")
+value = 100.0
+show_percentage = false
+
+[node name="Label" type="Label" parent="PlayerUI/VBoxContainer/HealthBar"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "HP:100/100"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="StaminaBar" type="ProgressBar" parent="PlayerUI/VBoxContainer"]
+custom_minimum_size = Vector2(300, 30)
+layout_mode = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_isen5")
+theme_override_styles/fill = SubResource("StyleBoxFlat_ll1pk")
+value = 100.0
+show_percentage = false
+
+[node name="Label" type="Label" parent="PlayerUI/VBoxContainer/StaminaBar"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "Stamina:100/100"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.57357645, 0.81915206, 0, -0.81915206, 0.57357645, 0, 15, 10)
+fov = 50.0
+script = ExtResource("1_5l0vc")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.8660254, 0.35355338, -0.35355338, 0, 0.70710677, 0.70710677, 0.5, -0.6123724, 0.6123724, 0, 0, 0)
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+mesh = SubResource("PlaneMesh_51pqh")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Ground"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ground/StaticBody3D"]
+shape = SubResource("BoxShape3D_4q130")
+
+[node name="Player" parent="." instance=ExtResource("1_s4h7g")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+
+[node name="Enemy" parent="." instance=ExtResource("2_5l0vc")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 1, 0)

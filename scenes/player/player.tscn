@@ -1,0 +1,52 @@
+[gd_scene load_steps=10 format=3 uid="uid://cylsh8eqvo85x"]
+
+[ext_resource type="Script" uid="uid://cyyqh327bqdwl" path="res://scripts/player.gd" id="1_dovo2"]
+[ext_resource type="Resource" uid="uid://dkcop28etad8r" path="res://resources/attacks/light_slash.tres" id="2_gmlin"]
+[ext_resource type="Script" uid="uid://dkqn17xebslq0" path="res://scripts/debug_draw.gd" id="3_gmlin"]
+[ext_resource type="PackedScene" uid="uid://c48qnejf3c5s8" path="res://scenes/player/player_model.tscn" id="3_lvxji"]
+[ext_resource type="Resource" uid="uid://vjhdqqjhgm8n" path="res://resources/attacks/heavy_slash.tres" id="3_p47bc"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_75vfm"]
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_0owmy"]
+radius = 2.0
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_qek5x"]
+transparency = 1
+albedo_color = Color(1, 0, 0, 0.50980395)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_5gtgg"]
+material = SubResource("StandardMaterial3D_qek5x")
+top_radius = 2.0
+bottom_radius = 0.0
+
+[node name="Player" type="CharacterBody3D" groups=["player"]]
+collision_layer = 2
+collision_mask = 3
+script = ExtResource("1_dovo2")
+light_attack = ExtResource("2_gmlin")
+heavy_attack = ExtResource("3_p47bc")
+move_speed = 3.0
+hit_stun_duration = 0.8
+
+[node name="PlayerModel" parent="." instance=ExtResource("3_lvxji")]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("CapsuleShape3D_75vfm")
+
+[node name="AttackDetector" type="Area3D" parent="."]
+collision_layer = 2
+collision_mask = 2
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="AttackDetector"]
+shape = SubResource("CylinderShape3D_0owmy")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="AttackDetector"]
+visible = false
+mesh = SubResource("CylinderMesh_5gtgg")
+
+[node name="DebugDraw" type="Node3D" parent="."]
+script = ExtResource("3_gmlin")
+show_facing = false
+show_attack_arc = false
+show_state_label = false

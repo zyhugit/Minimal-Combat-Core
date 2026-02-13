@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3 uid="uid://vjhdqqjhgm8n"]
+
+[ext_resource type="Script" uid="uid://cc410a0ld43ec" path="res://resources/attacks/attack_data.gd" id="1_syfex"]
+
+[resource]
+script = ExtResource("1_syfex")
+windup_time = 0.6
+active_time = 0.3
+recovery_time = 0.8
+stamina_cost = 40.0
+health_damage = 50.0
+posture_damage = 60.0
+stability_damage = 40.0
+reach = 2.8
+arc_angle = 120.0
+has_forward_movement = true
+movement_distance = 2.0
+metadata/_custom_type_script = "uid://cc410a0ld43ec"
