@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3 uid="uid://lsf27qqd0gql"]
+
+[ext_resource type="Script" uid="uid://cc410a0ld43ec" path="res://resources/attacks/attack_data.gd" id="1_u7hir"]
+
+[resource]
+script = ExtResource("1_u7hir")
+windup_time = 0.4
+active_time = 0.25
+recovery_time = 0.6
+health_damage = 20.0
+posture_damage = 35.0
+arc_angle = 180.0
+attack_name = "Sweep"
+description = "Wide sweeping attack. Great for catching dodges."
+metadata/_custom_type_script = "uid://cc410a0ld43ec"

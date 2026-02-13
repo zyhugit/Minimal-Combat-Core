@@ -4,4 +4,12 @@
 
 [resource]
 script = ExtResource("1_xpge2")
+windup_time = 0.2
+active_time = 0.15
+recovery_time = 0.4
+health_damage = 15.0
+stamina_cost = 10.0
+reach = 1.8
+attack_name = "Light Slash"
+description = "Quick slash that pressures enemy posture. Low risk, low reward."
 metadata/_custom_type_script = "uid://cc410a0ld43ec"

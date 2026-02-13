@@ -1,7 +1,7 @@
-[gd_scene load_steps=11 format=3 uid="uid://db8op1jvmg6hs"]
+[gd_scene load_steps=17 format=3 uid="uid://db8op1jvmg6hs"]
 
 [ext_resource type="Script" uid="uid://b12vuqioxkdsi" path="res://scripts/camera_controller.gd" id="1_5l0vc"]
-[ext_resource type="Script" uid="uid://dlq7i4u1ym0l6" path="res://scripts/player_ui.gd" id="1_51pqh"]
+[ext_resource type="Script" uid="uid://dlq7i4u1ym0l6" path="res://scripts/combat_ui.gd" id="1_51pqh"]
 [ext_resource type="PackedScene" uid="uid://cylsh8eqvo85x" path="res://scenes/player/player.tscn" id="1_s4h7g"]
 [ext_resource type="PackedScene" uid="uid://bypsk2simfi1h" path="res://scenes/player/Enemy.tscn" id="2_5l0vc"]
 
@@ -15,6 +15,9 @@ corner_radius_bottom_left = 5
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_rwwc7"]
 bg_color = Color(1.353256, 0, 0, 1)
 
+[sub_resource type="LabelSettings" id="LabelSettings_51pqh"]
+font_color = Color(0, 0, 0, 1)
+
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_isen5"]
 bg_color = Color(0, 0.6247642, 0.7498773, 1)
 corner_radius_top_left = 5
@@ -25,7 +28,22 @@ corner_radius_bottom_left = 5
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ll1pk"]
 bg_color = Color(0.7977378, 1.2282239, 1.353256, 1)
 
+[sub_resource type="LabelSettings" id="LabelSettings_4q130"]
+font_color = Color(0, 0, 0, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_visir"]
+bg_color = Color(0.8548469, 0.8548469, 0.48452926, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_8o13m"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_grjmi"]
+font_color = Color(0, 0, 0, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_51pqh"]
+albedo_color = Color(1.0223469, 1.4251195, 0.60754776, 1)
+
 [sub_resource type="PlaneMesh" id="PlaneMesh_51pqh"]
+material = SubResource("StandardMaterial3D_51pqh")
 size = Vector2(50, 50)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_4q130"]
@@ -33,17 +51,24 @@ size = Vector3(50, 0.1, 50)
 
 [node name="Node3D" type="Node3D"]
 
-[node name="PlayerUI" type="CanvasLayer" parent="."]
+[node name="CombatUI" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 0
 script = ExtResource("1_51pqh")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="PlayerUI"]
+[node name="MarginContainer" type="MarginContainer" parent="CombatUI"]
 custom_minimum_size = Vector2(300, 80)
+layout_mode = 0
 offset_left = 20.0
 offset_top = 20.0
-offset_right = 60.0
-offset_bottom = 78.0
+offset_right = 320.0
+offset_bottom = 180.0
 
-[node name="HealthBar" type="ProgressBar" parent="PlayerUI/VBoxContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="CombatUI/MarginContainer"]
+custom_minimum_size = Vector2(300, 80)
+layout_mode = 2
+
+[node name="HealthBar" type="ProgressBar" parent="CombatUI/MarginContainer/VBoxContainer"]
 custom_minimum_size = Vector2(300, 30)
 layout_mode = 2
 theme_override_styles/background = SubResource("StyleBoxFlat_4q130")
@@ -51,7 +76,7 @@ theme_override_styles/fill = SubResource("StyleBoxFlat_rwwc7")
 value = 100.0
 show_percentage = false
 
-[node name="Label" type="Label" parent="PlayerUI/VBoxContainer/HealthBar"]
+[node name="Label" type="Label" parent="CombatUI/MarginContainer/VBoxContainer/HealthBar"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -59,10 +84,11 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 text = "HP:100/100"
+label_settings = SubResource("LabelSettings_51pqh")
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="StaminaBar" type="ProgressBar" parent="PlayerUI/VBoxContainer"]
+[node name="PostureBar" type="ProgressBar" parent="CombatUI/MarginContainer/VBoxContainer"]
 custom_minimum_size = Vector2(300, 30)
 layout_mode = 2
 theme_override_styles/background = SubResource("StyleBoxFlat_isen5")
@@ -70,16 +96,45 @@ theme_override_styles/fill = SubResource("StyleBoxFlat_ll1pk")
 value = 100.0
 show_percentage = false
 
-[node name="Label" type="Label" parent="PlayerUI/VBoxContainer/StaminaBar"]
+[node name="Label" type="Label" parent="CombatUI/MarginContainer/VBoxContainer/PostureBar"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-text = "Stamina:100/100"
+text = "Posture:100/100"
+label_settings = SubResource("LabelSettings_4q130")
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="StaminaBar" type="ProgressBar" parent="CombatUI/MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(300, 30)
+layout_mode = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_visir")
+theme_override_styles/fill = SubResource("StyleBoxFlat_8o13m")
+show_percentage = false
+
+[node name="Label" type="Label" parent="CombatUI/MarginContainer/VBoxContainer/StaminaBar"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -65.0
+offset_top = -11.5
+offset_right = 65.0
+offset_bottom = 11.5
+grow_horizontal = 2
+grow_vertical = 2
+text = "Stamina:100/100"
+label_settings = SubResource("LabelSettings_grjmi")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="StatusLabel" type="Label" parent="CombatUI/MarginContainer/VBoxContainer"]
+layout_mode = 2
 
 [node name="Camera3D" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0.57357645, 0.81915206, 0, -0.81915206, 0.57357645, 0, 15, 10)

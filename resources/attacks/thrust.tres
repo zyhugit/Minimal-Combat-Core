@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3 uid="uid://do3aykp7ubxsb"]
+
+[ext_resource type="Script" uid="uid://cc410a0ld43ec" path="res://resources/attacks/attack_data.gd" id="1_6df3c"]
+
+[resource]
+script = ExtResource("1_6df3c")
+windup_time = 0.35
+posture_damage = 25.0
+stamina_cost = 15.0
+reach = 2.8
+arc_angle = 60.0
+movement_distance = 0.5
+attack_name = "Thrust"
+description = "Precise thrust with extended range. Requires good positioning."
+metadata/_custom_type_script = "uid://cc410a0ld43ec"

@@ -1,28 +1,26 @@
-# res://resources/attacks/attack_data.gd
+# res://resources/attack_data.gd
 class_name AttackData
 extends Resource
 
-## Attack timing (in seconds)
+## Timing
 @export var windup_time: float = 0.3
 @export var active_time: float = 0.2
-@export var recovery_time: float = 0.4
+@export var recovery_time: float = 0.5
 
-## Resource costs and damage
-@export var stamina_cost: float = 20.0
+## Damage
 @export var health_damage: float = 25.0
-@export var posture_damage: float = 30.0
-@export var stability_damage: float = 20.0
+@export var posture_damage: float = 20.0    # Damages posture (even through blocks/parries)
 
-## Hit detection
+## Cost
+@export var stamina_cost: float = 20.0      # Drains stamina (affects posture regen)
+
+## Range
 @export var reach: float = 2.0
-@export var arc_angle: float = 90.0  # Degrees (total arc)
-@export_enum("High", "Mid", "Low") var height: String = "Mid"
+@export var arc_angle: float = 90.0  # Degrees
 
-## Flags
-@export var causes_unstable: bool = false
-@export var vulnerable_to_sweep: bool = false
-@export var has_forward_movement: bool = false  # Does animation move forward?
-@export var movement_distance: float = 0.0  # How far it moves (if has_forward_movement)
+## Movement
+@export var movement_distance: float = 0.0  # How far forward the attack moves
 
-func get_total_duration() -> float:
-	return windup_time + active_time + recovery_time
+## Descriptions
+@export var attack_name: String = "Basic Attack"
+@export_multiline var description: String = ""
