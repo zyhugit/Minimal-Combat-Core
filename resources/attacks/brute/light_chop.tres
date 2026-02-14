@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3 uid="uid://c8wpmxumoshaw"]
+
+[ext_resource type="Script" uid="uid://cc410a0ld43ec" path="res://resources/attacks/attack_data.gd" id="1_rt0qp"]
+
+[resource]
+script = ExtResource("1_rt0qp")
+windup_time = 0.8
+recovery_time = 1.2
+health_damage = 20.0
+posture_damage = 25.0
+stamina_cost = 15.0
+reach = 2.5
+arc_angle = 70.0
+attack_name = "Light Slash"
+description = "Quick slash that pressures enemy posture. Low risk, low reward."
+metadata/_custom_type_script = "uid://cc410a0ld43ec"

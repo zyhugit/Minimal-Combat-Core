@@ -5,14 +5,14 @@
 [resource]
 script = ExtResource("1_syfex")
 windup_time = 0.5
-active_time = 0.3
+active_time = 0.1
 recovery_time = 0.7
 health_damage = 50.0
 posture_damage = 40.0
 stamina_cost = 25.0
 reach = 2.5
 arc_angle = 120.0
-movement_distance = 2.0
+movement_distance = 2.5
 attack_name = "Heavy Slash"
 description = "Devastating overhead strike. High risk, high reward."
 metadata/_custom_type_script = "uid://cc410a0ld43ec"

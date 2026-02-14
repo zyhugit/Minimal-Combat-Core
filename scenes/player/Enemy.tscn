@@ -1,9 +1,10 @@
-[gd_scene load_steps=7 format=3 uid="uid://bypsk2simfi1h"]
+[gd_scene load_steps=8 format=3 uid="uid://bypsk2simfi1h"]
 
 [ext_resource type="Script" uid="uid://cfca8570v8x6y" path="res://scripts/enemy_ai.gd" id="1_ujo5d"]
-[ext_resource type="Resource" uid="uid://dkcop28etad8r" path="res://resources/attacks/light_slash.tres" id="2_e4lb0"]
+[ext_resource type="Resource" uid="uid://c8wpmxumoshaw" path="res://resources/attacks/brute/light_chop.tres" id="2_fp648"]
 [ext_resource type="Script" uid="uid://dkqn17xebslq0" path="res://scripts/debug_draw.gd" id="3_e4lb0"]
 [ext_resource type="PackedScene" uid="uid://b3flnq6op2h0u" path="res://scenes/player/brute_model.tscn" id="3_ghim2"]
+[ext_resource type="Resource" uid="uid://ca0r3uulf3qaj" path="res://resources/attacks/brute/horizontal_swing.tres" id="3_trwu0"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_trwu0"]
 
@@ -14,7 +15,8 @@ radius = 2.0
 collision_layer = 2
 collision_mask = 3
 script = ExtResource("1_ujo5d")
-light_attack = ExtResource("2_e4lb0")
+light_attack = ExtResource("2_fp648")
+heavy_attack = ExtResource("3_trwu0")
 hit_stun_duration = 0.8
 
 [node name="EnemyModel" parent="." instance=ExtResource("3_ghim2")]

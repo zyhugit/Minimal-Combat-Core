@@ -9,17 +9,18 @@ extends Resource
 
 ## Damage
 @export var health_damage: float = 25.0
-@export var posture_damage: float = 20.0    # Damages posture (even through blocks/parries)
+@export var posture_damage: float = 20.0    # Damages target's posture
 
-## Cost
-@export var stamina_cost: float = 20.0      # Drains stamina (affects posture regen)
+## NEW: Costs (attacks now cost BOTH resources)
+@export var posture_cost: float = 30.0      # PRIMARY cost (large)
+@export var stamina_cost: float = 5.0       # SECONDARY cost (small)
 
 ## Range
 @export var reach: float = 2.0
-@export var arc_angle: float = 90.0  # Degrees
+@export var arc_angle: float = 90.0
 
 ## Movement
-@export var movement_distance: float = 0.0  # How far forward the attack moves
+@export var movement_distance: float = 0.0
 
 ## Descriptions
 @export var attack_name: String = "Basic Attack"

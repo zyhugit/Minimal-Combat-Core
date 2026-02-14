@@ -21,7 +21,7 @@ func _ready():
 		label_3d = Label3D.new()
 		label_3d.pixel_size = 0.01
 		label_3d.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		label_3d.position = Vector3(0, 2.5, 0)
+		label_3d.position = Vector3(0, 3.5, 0)
 		add_child(label_3d)
 
 func _process(_delta):
@@ -30,9 +30,10 @@ func _process(_delta):
 	
 	# Update state label
 	if label_3d:
-		label_3d.text = "%s\nHP: %.0f\nStam: %.0f" % [
+		label_3d.text = "%s\nHP: %.0f\nPost: %.0f\nStam: %.0f" % [
 			Combatant.State.keys()[combatant.current_state],
 			combatant.health,
+			combatant.posture,
 			combatant.stamina
 		]
 	

@@ -1,10 +1,10 @@
 [gd_scene load_steps=10 format=3 uid="uid://cylsh8eqvo85x"]
 
 [ext_resource type="Script" uid="uid://cyyqh327bqdwl" path="res://scripts/player.gd" id="1_dovo2"]
-[ext_resource type="Resource" uid="uid://dkcop28etad8r" path="res://resources/attacks/light_slash.tres" id="2_gmlin"]
+[ext_resource type="Resource" uid="uid://dkcop28etad8r" path="res://resources/attacks/knight/light_slash.tres" id="2_gmlin"]
 [ext_resource type="Script" uid="uid://dkqn17xebslq0" path="res://scripts/debug_draw.gd" id="3_gmlin"]
 [ext_resource type="PackedScene" uid="uid://c48qnejf3c5s8" path="res://scenes/player/player_model.tscn" id="3_lvxji"]
-[ext_resource type="Resource" uid="uid://vjhdqqjhgm8n" path="res://resources/attacks/heavy_slash.tres" id="3_p47bc"]
+[ext_resource type="Resource" uid="uid://vjhdqqjhgm8n" path="res://resources/attacks/knight/spin_slash.tres" id="3_p47bc"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_75vfm"]
 
@@ -46,5 +46,3 @@ mesh = SubResource("CylinderMesh_5gtgg")
 
 [node name="DebugDraw" type="Node3D" parent="."]
 script = ExtResource("3_gmlin")
-show_facing = false
-show_attack_arc = false

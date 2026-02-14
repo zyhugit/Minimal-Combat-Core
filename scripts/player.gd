@@ -38,9 +38,12 @@ func setup_animations():
 		
 		if animation_tree:
 			state_machine = animation_tree.get("parameters/playback")
+			# Make sure AnimationTree is active
+			animation_tree.active = true
 		
 		if animation_player:
 			print("Player animations found!")
+			print("Available animations: ", animation_player.get_animation_list())
 		else:
 			print("Warning: Player AnimationPlayer not found")
 
@@ -51,8 +54,8 @@ func _physics_process(delta: float):
 	super._physics_process(delta)
 
 func handle_input(delta: float):
-	# Right-click to set facing direction
-	if Input.is_action_pressed("face_mouse"):  # Changed to pressed for continuous tracking
+	# Right-click to set facing direction - use just_pressed to make it snappy
+	if Input.is_action_just_pressed("face_mouse"):
 		update_facing_from_mouse()
 	
 	# Movement (only in IDLE or MOVE states)
@@ -83,7 +86,7 @@ func handle_input(delta: float):
 	# Heavy attack (check FIRST - has priority)
 	if Input.is_action_just_pressed("attack_heavy"):
 		update_facing_from_mouse()
-		if heavy_attack:  # Safety check
+		if heavy_attack:
 			if not try_attack(heavy_attack):
 				if current_state == State.ATTACK_RECOVERY:
 					buffered_attack = heavy_attack
@@ -93,7 +96,7 @@ func handle_input(delta: float):
 	# Light attack
 	elif Input.is_action_just_pressed("attack_light"):
 		update_facing_from_mouse()
-		if light_attack:  # Safety check
+		if light_attack:
 			if not try_attack(light_attack):
 				if current_state == State.ATTACK_RECOVERY:
 					buffered_attack = light_attack
@@ -108,8 +111,11 @@ func handle_input(delta: float):
 func handle_movement(delta: float):
 	var input_dir = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	
+	# Check if sprinting
+	is_sprinting = Input.is_action_pressed("sprint") and input_dir.length() > 0
+	
 	if input_dir.length() > 0:
-		# Move relative to CAMERA, not character
+		# Move relative to CAMERA
 		var cam_forward = -camera.global_transform.basis.z
 		var cam_right = camera.global_transform.basis.x
 		cam_forward.y = 0
@@ -119,7 +125,7 @@ func handle_movement(delta: float):
 		
 		var move_dir = (cam_forward * -input_dir.y + cam_right * input_dir.x).normalized()
 		
-		# Use modified move speed (affected by posture)
+		# Use modified move speed (affected by posture + stamina + sprint)
 		var speed = get_modified_move_speed()
 		velocity.x = move_dir.x * speed
 		velocity.z = move_dir.z * speed
@@ -127,6 +133,7 @@ func handle_movement(delta: float):
 		if current_state == State.IDLE:
 			change_state(State.MOVE)
 	else:
+		is_sprinting = false
 		if current_state == State.MOVE:
 			change_state(State.IDLE)
 
@@ -139,41 +146,39 @@ func update_facing_from_mouse():
 	var from = camera.project_ray_origin(mouse_pos)
 	var to = from + camera.project_ray_normal(mouse_pos) * 1000.0
 	
-	# Raycast to ground plane
-	var plane = Plane(Vector3.UP, global_position.y)
-	var intersection = plane.intersects_ray(from, to - from)
+	# Raycast to find ground intersection
+	var space_state = get_world_3d().direct_space_state
+	var query = PhysicsRayQueryParameters3D.create(from, to)
+	var result = space_state.intersect_ray(query)
 	
-	if intersection:
-		var look_dir = intersection - global_position
-		facing_angle = atan2(look_dir.z, look_dir.x)
+	if result:
+		var target_pos = result.position
+		var look_dir = target_pos - global_position
+		look_dir.y = 0
+		if look_dir.length() > 0.1:
+			facing_angle = atan2(look_dir.z, look_dir.x)
+			print("Player facing updated: ", rad_to_deg(facing_angle))
 
 func on_hit_landed(target: Combatant):
 	# Screen shake on hit
 	if camera_controller:
 		if current_attack == heavy_attack:
-			camera_controller.shake_heavy()  # BIG shake
+			camera_controller.shake_heavy()
 		else:
-			camera_controller.shake_light()  # Small shake
+			camera_controller.shake_light()
 
 func play_parry_effect():
-	# Flash effect or particle
 	print("⚔️ PERFECT PARRY!")
-	
-	# TODO: Add visual/audio feedback
-	# if mesh_instance:
-	#     flash_material(Color.CYAN)
-	# $ParrySound.play()
 
 func play_deflected_effect():
 	print("❌ ATTACK DEFLECTED!")
-	
-	# TODO: Add visual/audio feedback
-	# if mesh_instance:
-	#     flash_material(Color.RED)
 
 func play_animation_for_state(state: State):
 	if not state_machine:
 		return
+	
+	# CRITICAL FIX: Don't use animation_player.play() - it causes errors
+	# The AnimationTree manages the AnimationPlayer, so we only use state_machine
 	
 	match state:
 		State.IDLE:
@@ -182,31 +187,31 @@ func play_animation_for_state(state: State):
 		State.MOVE:
 			state_machine.travel("walk")
 		
-		State.ATTACK_WINDUP, State.ATTACK_ACTIVE, State.ATTACK_RECOVERY:
-			# Different animation based on attack type
+		State.ATTACK_WINDUP:
+			# Use start() to force restart attacks
 			if current_attack == heavy_attack:
-				state_machine.travel("heavy attack")
+				state_machine.start("heavy attack")
 			else:
-				state_machine.travel("light attack")
+				state_machine.start("light attack")
+		
+		State.ATTACK_ACTIVE, State.ATTACK_RECOVERY:
+			# Don't change animation - let attack finish
+			pass
 		
 		State.HIT_STUN:
-			state_machine.travel("hit reaction")
+			state_machine.start("hit reaction")
 		
 		State.STAGGERED:
-			# Use hit reaction if no stagger animation
-			state_machine.travel("hit reaction")
+			state_machine.start("hit reaction")
 		
 		State.KNOCKDOWN:
-			# Use death animation temporarily if no knockdown animation
-			state_machine.travel("death")
+			state_machine.start("death")
 		
 		State.PARRY:
-			# Use idle if no parry animation yet
 			state_machine.travel("idle")
 		
 		State.DODGE:
-			# Use walk if no dodge animation yet
 			state_machine.travel("walk")
 		
 		State.DEAD:
-			state_machine.travel("death")
+			state_machine.start("death")

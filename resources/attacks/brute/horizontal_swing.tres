@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3 uid="uid://ca0r3uulf3qaj"]
+
+[ext_resource type="Script" uid="uid://cc410a0ld43ec" path="res://resources/attacks/attack_data.gd" id="1_6ex5g"]
+
+[resource]
+script = ExtResource("1_6ex5g")
+windup_time = 0.9
+active_time = 0.1
+recovery_time = 1.4
+health_damage = 50.0
+posture_damage = 40.0
+stamina_cost = 25.0
+reach = 2.5
+arc_angle = 120.0
+movement_distance = 2.5
+attack_name = "Heavy Slash"
+description = "Devastating overhead strike. High risk, high reward."
+metadata/_custom_type_script = "uid://cc410a0ld43ec"
