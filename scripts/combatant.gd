@@ -10,47 +10,67 @@ enum State {
 	ATTACK_ACTIVE,
 	ATTACK_RECOVERY,
 	HIT_STUN,
-	STAGGERED,      # Posture broken
-	KNOCKDOWN,      # Hit while staggered at 0 posture
-	PARRY,
+	BLOCK_STUN,         # After blocking an attack
+	DEFLECT_STUN,       # After deflecting perfectly
+	DEFLECT_PUNISHED,   # Got deflected (vulnerable!)
+	STAGGERED,
+	KNOCKDOWN,
+	DEFENDING,          # NEW: Single defense state (replaces PARRY + GUARD_RECOVERY)
 	DODGE,
 	DEAD
+}
+
+## Parry Results
+enum ParryResult {
+	NO_PARRY,
+	BLOCKED,
+	DEFLECTED
 }
 
 ## Combat Resources
 @export_group("Resources")
 @export var max_health: float = 100.0
-@export var max_posture: float = 100.0    # SHORT-TERM: Actions per "breath"
-@export var max_stamina: float = 100.0    # LONG-TERM: Fighting endurance
+@export var max_posture: float = 100.0
+@export var max_stamina: float = 100.0
 
 ## Movement & Timing
 @export_group("Movement & Timing")
-@export var base_move_speed: float = 2.0
-@export var base_sprint_multiplier: float = 1.8  # How much faster sprinting is
-@export var hit_stun_duration: float = 0.4
+@export var base_move_speed: float = 2.5
+@export var base_sprint_multiplier: float = 1.8
+@export var defend_move_speed_mult: float = 0.3  # Move speed while defending (30%)
+@export var hit_stun_duration: float = 0.6
+@export var block_stun_duration: float = 0.3    # After blocking
+@export var deflect_stun_duration: float = 0.1  # After deflecting
+@export var deflect_punish_duration: float = 0.5  # After being deflected
 @export var stagger_duration: float = 2.0
 @export var knockdown_duration: float = 3.0
-@export var parry_window: float = 0.5
+@export var deflect_window: float = 0.2         # First 0.2s = deflect, after = block
 @export var dodge_duration: float = 0.5
 @export var dodge_iframes: float = 0.3
 @export var allow_attack_movement: bool = true
 
-## Action Costs (REDESIGNED: Posture primary, Stamina secondary)
+## Action Costs (Posture primary, Stamina secondary)
 @export_group("Action Costs")
-@export var parry_posture_cost: float = 25.0    # Main cost
-@export var parry_stamina_cost: float = 5.0     # Secondary cost
-@export var dodge_posture_cost: float = 30.0    # Main cost
-@export var dodge_stamina_cost: float = 5.0     # Secondary cost
-@export var sprint_posture_drain: float = 15.0  # Per second (main cost)
-@export var sprint_stamina_drain: float = 3.0   # Per second (secondary cost)
+@export var parry_stamina_cost: float = 5.0     # Legacy variable (for enemy AI compatibility)
+@export var deflect_posture_cost: float = 5.0   # Very cheap
+@export var block_posture_cost: float = 20.0    # More expensive
+@export var block_health_cost: float = 5.0      # NEW: Chip damage
+@export var dodge_posture_cost: float = 30.0
+@export var dodge_stamina_cost: float = 5.0
+@export var sprint_posture_drain: float = 15.0
+@export var sprint_stamina_drain: float = 3.0
 
-## Posture Thresholds (affect success rates)
-@export_group("Posture Effects")
-@export var posture_high_threshold: float = 70.0   # Above this = bonuses
-@export var posture_low_threshold: float = 30.0    # Below this = penalties
+## Recovery Rates (NEW: Hybrid system)
+@export_group("Recovery Rates")
+@export var passive_posture_regen: float = 12.0   # Auto-recovery when idle (slow)
+@export var active_posture_regen: float = 50.0    # Manual recovery when guarding (fast)
+@export var out_of_combat_stamina_regen: float = 2.0
+@export var in_combat_stamina_regen: float = 0.0
 
-## Stamina Thresholds (affect success rates)
-@export_group("Stamina Effects")
+## Posture/Stamina Thresholds
+@export_group("Resource Thresholds")
+@export var posture_high_threshold: float = 70.0
+@export var posture_low_threshold: float = 30.0
 @export var stamina_high_threshold: float = 60.0
 @export var stamina_low_threshold: float = 30.0
 
@@ -61,7 +81,7 @@ enum State {
 ## Current Resource Values
 var health: float = 100.0
 var posture: float = 100.0
-var stamina: float = 100.0
+var stamina: float = 100.0  # NEW: Can go to 0, provides penalties only
 
 var current_state: State = State.IDLE
 var previous_state: State = State.IDLE
@@ -69,6 +89,7 @@ var facing_angle: float = 0.0
 
 ## State timing
 var state_timer: float = 0.0
+var defend_timer: float = 0.0  # Tracks time spent defending (for deflect window)
 var current_attack: AttackData = null
 
 ## Attack movement tracking
@@ -102,6 +123,8 @@ signal health_changed(new_health: float)
 signal posture_changed(new_posture: float)
 signal stamina_changed(new_stamina: float)
 signal posture_broken()
+signal deflect_success()     # NEW
+signal block_occurred()      # NEW
 signal entered_combat()
 signal exited_combat()
 signal died()
@@ -118,7 +141,7 @@ func _physics_process(delta: float):
 	update_combat_state(delta)
 	
 	# Stop movement during most states
-	if current_state != State.MOVE and current_state != State.DODGE:
+	if current_state != State.MOVE and current_state != State.DEFENDING and current_state != State.DODGE:
 		velocity.x = 0
 		velocity.z = 0
 	
@@ -137,6 +160,10 @@ func _physics_process(delta: float):
 
 func update_state(delta: float):
 	state_timer -= delta
+	
+	# Track time spent defending
+	if current_state == State.DEFENDING:
+		defend_timer += delta
 	
 	match current_state:
 		State.IDLE, State.MOVE:
@@ -158,23 +185,33 @@ func update_state(delta: float):
 			if state_timer <= 0:
 				change_state(State.IDLE)
 		
+		State.BLOCK_STUN:
+			if state_timer <= 0:
+				change_state(State.IDLE)
+		
+		State.DEFLECT_STUN:
+			if state_timer <= 0:
+				change_state(State.IDLE)
+		
+		State.DEFLECT_PUNISHED:
+			if state_timer <= 0:
+				change_state(State.IDLE)
+		
 		State.STAGGERED:
 			if state_timer <= 0:
 				change_state(State.IDLE)
-				# Restore some posture after stagger ends
 				posture = min(posture + 30.0, max_posture)
 				posture_changed.emit(posture)
 		
 		State.KNOCKDOWN:
 			if state_timer <= 0:
 				change_state(State.IDLE)
-				# Restore more posture after knockdown ends
 				posture = min(posture + 50.0, max_posture)
 				posture_changed.emit(posture)
 		
-		State.PARRY:
-			if state_timer <= 0:
-				change_state(State.IDLE)
+		State.DEFENDING:
+			# Stay in defending state until player releases button
+			pass
 		
 		State.DODGE:
 			if state_timer <= (dodge_duration - dodge_iframes):
@@ -186,29 +223,32 @@ func update_state(delta: float):
 		State.DEAD:
 			pass
 
-## NEW: Resource management with posture as primary action resource
+## NEW: Hybrid recovery system - active regen only out of combat!
 func update_resources(delta: float):
-	var posture_regen_rate = calculate_posture_regen_rate()
+	var stamina_percent = stamina / max_stamina
+	var stamina_modifier = calculate_stamina_modifier()
 	
 	match current_state:
 		State.IDLE:
-			# Best regen when idle
-			posture = min(posture + posture_regen_rate * delta, max_posture)
+			# Passive posture recovery
+			var passive_rate = passive_posture_regen * stamina_modifier
+			posture = min(posture + passive_rate * delta, max_posture)
 			posture_changed.emit(posture)
 			
 			# Stamina regen
 			if is_in_combat:
-				stamina = min(stamina + 0.5 * delta, max_stamina)  # Slightly faster in combat
+				stamina = min(stamina + in_combat_stamina_regen * delta, max_stamina)
 			else:
-				stamina = min(stamina + 2.0 * delta, max_stamina)  # Fast out of combat
+				stamina = min(stamina + out_of_combat_stamina_regen * delta, max_stamina)
 			stamina_changed.emit(stamina)
 		
 		State.MOVE:
-			# Reduced posture regen when moving
-			posture = min(posture + posture_regen_rate * 0.5 * delta, max_posture)
+			# Reduced passive posture regen when moving
+			var passive_rate = passive_posture_regen * stamina_modifier * 0.5
+			posture = min(posture + passive_rate * delta, max_posture)
 			posture_changed.emit(posture)
 			
-			# NEW: Sprint drains both posture and stamina
+			# Sprint costs
 			if is_sprinting:
 				posture = max(posture - sprint_posture_drain * delta, 0.0)
 				stamina = max(stamina - sprint_stamina_drain * delta, 0.0)
@@ -216,31 +256,46 @@ func update_resources(delta: float):
 				stamina_changed.emit(stamina)
 			
 			# Small stamina regen when not sprinting
-			if not is_sprinting:
-				if is_in_combat:
-					stamina = min(stamina + 2.0 * delta, max_stamina)
+			if not is_sprinting and is_in_combat:
+				stamina = min(stamina + in_combat_stamina_regen * delta, max_stamina)
 				stamina_changed.emit(stamina)
 		
-		State.ATTACK_RECOVERY, State.HIT_STUN, State.STAGGERED, State.KNOCKDOWN:
+		State.DEFENDING:
+			# Active posture recovery ONLY when out of combat!
+			if not is_in_combat:
+				var active_rate = active_posture_regen * stamina_modifier
+				posture = min(posture + active_rate * delta, max_posture)
+				posture_changed.emit(posture)
+			else:
+				# In combat: just passive regen
+				var passive_rate = passive_posture_regen * stamina_modifier
+				posture = min(posture + passive_rate * delta, max_posture)
+				posture_changed.emit(posture)
+			
+			# Small stamina regen while defending
+			if is_in_combat:
+				stamina = min(stamina + in_combat_stamina_regen * 0.5 * delta, max_stamina)
+				stamina_changed.emit(stamina)
+		
+		State.ATTACK_RECOVERY, State.HIT_STUN, State.BLOCK_STUN, State.DEFLECT_STUN, State.DEFLECT_PUNISHED, State.STAGGERED, State.KNOCKDOWN:
 			# No posture regen during vulnerable states
 			pass
 		
-		State.PARRY, State.DODGE:
-			# Minimal posture regen during defensive actions
-			posture = min(posture + posture_regen_rate * 0.2 * delta, max_posture)
+		State.DODGE:
+			# Minimal posture regen
+			var passive_rate = passive_posture_regen * stamina_modifier * 0.2
+			posture = min(posture + passive_rate * delta, max_posture)
 			posture_changed.emit(posture)
 
-func calculate_posture_regen_rate() -> float:
+## NEW: Stamina affects regeneration and success rates, but doesn't gate actions
+func calculate_stamina_modifier() -> float:
 	var stamina_percent = stamina / max_stamina
 	
-	# NEW: More aggressive scaling
-	# 100% stamina = 60 posture/sec (1.67s to full)
-	# 50% stamina = 30 posture/sec (3.3s to full)
-	# 0% stamina = 10 posture/sec (10s to full!)
-	var base_rate = 60.0
-	var min_rate = 10.0
-	
-	return lerp(min_rate, base_rate, stamina_percent)
+	# Stamina affects regen rate:
+	# 100% stamina = 1.0x regen
+	# 50% stamina = 0.65x regen
+	# 0% stamina = 0.3x regen (very slow but not zero!)
+	return lerp(0.3, 1.0, stamina_percent)
 
 func update_combat_state(delta: float):
 	if is_in_combat:
@@ -267,6 +322,8 @@ func change_state(new_state: State):
 	match current_state:
 		State.DODGE:
 			is_invulnerable = false
+		State.DEFENDING:
+			defend_timer = 0.0  # Reset when leaving defense
 	
 	previous_state = current_state
 	current_state = new_state
@@ -283,40 +340,44 @@ func change_state(new_state: State):
 			state_timer = current_attack.recovery_time
 		State.HIT_STUN:
 			state_timer = hit_stun_duration
+		State.BLOCK_STUN:
+			state_timer = block_stun_duration
+		State.DEFLECT_STUN:
+			state_timer = deflect_stun_duration
+		State.DEFLECT_PUNISHED:
+			state_timer = deflect_punish_duration
 		State.STAGGERED:
 			state_timer = stagger_duration
 		State.KNOCKDOWN:
 			state_timer = knockdown_duration
-		State.PARRY:
-			state_timer = parry_window
+		State.DEFENDING:
+			defend_timer = 0.0  # Reset when entering defense
 		State.DODGE:
 			state_timer = dodge_duration
 			is_invulnerable = true
 
-## NEW: Calculate success chance for actions based on BOTH resources
+## NEW: Calculate success chance (stamina affects but doesn't prevent)
 func get_action_success_chance() -> float:
 	var posture_percent = posture / max_posture
 	var stamina_percent = stamina / max_stamina
 	
-	# Base success rate
 	var base_chance = 1.0
 	
 	# Posture affects success more (70% weight)
 	var posture_modifier = 1.0
 	if posture_percent < (posture_low_threshold / 100.0):
-		# Low posture: 30% → 70% success
 		posture_modifier = lerp(0.3, 0.7, posture_percent / (posture_low_threshold / 100.0))
 	elif posture_percent > (posture_high_threshold / 100.0):
-		# High posture: 100% → 110% success (can exceed 100%)
 		posture_modifier = lerp(1.0, 1.1, (posture_percent - posture_high_threshold / 100.0) / (1.0 - posture_high_threshold / 100.0))
 	
-	# Stamina affects success less (30% weight)
+	# NEW: Stamina affects success less (30% weight), but can go very low
 	var stamina_modifier = 1.0
 	if stamina_percent < (stamina_low_threshold / 100.0):
-		# Low stamina: 80% → 90% success
-		stamina_modifier = lerp(0.8, 0.9, stamina_percent / (stamina_low_threshold / 100.0))
-	
-	# Weighted combination: 70% posture, 30% stamina
+		# At 0% stamina: 50% success (still usable but unreliable!)
+		# At 30% stamina: 85% success
+		stamina_modifier = lerp(0.5, 0.85, stamina_percent / (stamina_low_threshold / 100.0))
+	elif stamina_percent < (stamina_high_threshold / 100.0):
+		stamina_modifier = lerp(0.85, 1.0, (stamina_percent - stamina_low_threshold / 100.0) / ((stamina_high_threshold - stamina_low_threshold) / 100.0))
 	return base_chance * (posture_modifier * 0.7 + stamina_modifier * 0.3)
 
 func get_modified_windup_time() -> float:
@@ -324,10 +385,6 @@ func get_modified_windup_time() -> float:
 		return 0.3
 	
 	var success_chance = get_action_success_chance()
-	
-	# Lower success = slower attacks
-	# 30% success = 1.7x slower
-	# 100% success = 1.0x normal
 	var speed_modifier = lerp(1.7, 1.0, success_chance)
 	
 	return current_attack.windup_time * speed_modifier
@@ -337,68 +394,53 @@ func get_modified_damage() -> float:
 		return 0.0
 	
 	var success_chance = get_action_success_chance()
-	
-	# Damage scales with success chance
-	# 30% success = 0.4x damage
-	# 100% success = 1.0x damage
-	# 110% success = 1.1x damage (bonus!)
 	return current_attack.health_damage * lerp(0.4, 1.0, success_chance)
 
-## NEW: Movement speed affected by both posture and stamina
 func get_modified_move_speed() -> float:
 	var posture_percent = posture / max_posture
 	var stamina_percent = stamina / max_stamina
 	
 	var speed = base_move_speed
 	
-	# Posture affects speed more (60% weight)
 	var posture_modifier = 1.0
 	if posture_percent < (posture_low_threshold / 100.0):
-		# Low posture: 0.5x → 1.0x speed
 		posture_modifier = lerp(0.5, 1.0, posture_percent / (posture_low_threshold / 100.0))
 	
-	# Stamina affects speed (40% weight)
 	var stamina_modifier = 1.0
 	if stamina_percent < (stamina_low_threshold / 100.0):
-		# Low stamina: 0.7x → 1.0x speed
-		stamina_modifier = lerp(0.7, 1.0, stamina_percent / (stamina_low_threshold / 100.0))
+		stamina_modifier = lerp(0.6, 1.0, stamina_percent / (stamina_low_threshold / 100.0))
 	
-	# Weighted combination
 	var total_modifier = posture_modifier * 0.6 + stamina_modifier * 0.4
 	
-	# Apply sprint multiplier if sprinting
-	if is_sprinting:
-		# Can only sprint at full speed if resources are good
+	# Slow movement while defending
+	if current_state == State.DEFENDING:
+		speed *= defend_move_speed_mult * total_modifier
+	elif is_sprinting:
 		speed *= base_sprint_multiplier * total_modifier
 	else:
 		speed *= total_modifier
 	
 	return speed
 
-## NEW: Attack now costs BOTH posture and stamina
+## NEW: Attack only requires posture (no stamina gate!)
 func try_attack(attack_data: AttackData) -> bool:
 	if current_state != State.IDLE and current_state != State.MOVE:
 		return false
 	
-	# NEW: Check BOTH resources
+	# NEW: Only check posture (stamina provides penalties, not prevention)
 	if posture < attack_data.posture_cost:
 		print(name, " not enough posture to attack!")
 		return false
 	
-	if stamina < attack_data.stamina_cost:
-		print(name, " not enough stamina to attack!")
-		return false
-	
-	# Minimum posture required
 	if posture < 10.0:
 		print(name, " too exhausted to attack!")
 		return false
 	
 	current_attack = attack_data
 	
-	# NEW: Drain BOTH resources
+	# Drain both resources
 	posture -= attack_data.posture_cost
-	stamina -= attack_data.stamina_cost
+	stamina = max(stamina - attack_data.stamina_cost, 0.0)  # NEW: Can go to 0
 	posture_changed.emit(posture)
 	stamina_changed.emit(stamina)
 	
@@ -408,75 +450,45 @@ func try_attack(attack_data: AttackData) -> bool:
 	change_state(State.ATTACK_WINDUP)
 	return true
 
-## NEW: Parry costs BOTH resources
-func try_parry() -> bool:
+## Simplified: Start defending (single function)
+func try_defend() -> bool:
 	if current_state != State.IDLE and current_state != State.MOVE:
 		return false
 	
-	# NEW: Check BOTH resources
-	if posture < parry_posture_cost:
-		print(name, " not enough posture to parry!")
-		return false
-	
-	if stamina < parry_stamina_cost:
-		print(name, " not enough stamina to parry!")
-		return false
-	
-	# NEW: Drain BOTH resources
-	posture -= parry_posture_cost
-	stamina -= parry_stamina_cost
-	posture_changed.emit(posture)
-	stamina_changed.emit(stamina)
-	
-	# NEW: Roll for parry success based on resources
-	var success_chance = get_action_success_chance()
-	var parry_succeeded = randf() < success_chance
-	
-	if not parry_succeeded:
-		print(name, " parry FAILED (chance was ", success_chance * 100, "%)")
-		# Failed parry - just waste resources and go back to idle
-		change_state(State.IDLE)
-		return false
-	
-	enter_combat()
 	reset_combat_timer()
 	
-	change_state(State.PARRY)
+	change_state(State.DEFENDING)
 	return true
 
-## NEW: Dodge costs BOTH resources
+## Stop defending
+func stop_defend():
+	if current_state == State.DEFENDING:
+		change_state(State.IDLE)
+
 func try_dodge(input_direction: Vector3) -> bool:
 	if current_state != State.IDLE and current_state != State.MOVE:
 		return false
 	
-	# NEW: Check BOTH resources
 	if posture < dodge_posture_cost:
 		print(name, " not enough posture to dodge!")
 		return false
 	
-	if stamina < dodge_stamina_cost:
-		print(name, " not enough stamina to dodge!")
-		return false
-	
-	# Determine dodge direction
 	if input_direction.length() > 0.1:
 		dodge_direction = input_direction.normalized()
 	else:
 		dodge_direction = Vector3(cos(facing_angle + PI), 0, sin(facing_angle + PI))
 	
-	# NEW: Drain BOTH resources
 	posture -= dodge_posture_cost
-	stamina -= dodge_stamina_cost
+	stamina = max(stamina - dodge_stamina_cost, 0.0)  # NEW: Can go to 0
 	posture_changed.emit(posture)
 	stamina_changed.emit(stamina)
 	
-	# NEW: Roll for dodge success
+	# Roll for dodge success
 	var success_chance = get_action_success_chance()
 	var dodge_succeeded = randf() < success_chance
 	
 	if not dodge_succeeded:
 		print(name, " dodge FAILED (chance was ", success_chance * 100, "%)")
-		# Failed dodge - movement but no i-frames!
 		is_invulnerable = false
 	
 	enter_combat()
@@ -501,15 +513,28 @@ func check_hit():
 		
 		if body is Combatant:
 			if is_in_attack_arc(body):
-				# Check if target is parrying
-				if body.current_state == State.PARRY:
-					if body.is_attack_within_parry_arc(self):
-						print(body.name, " PARRIED ", name, "'s attack!")
-						body.on_parry_success(self)
-						on_attack_parried(body)
-						continue
+				print(name, " hitting ", body.name, " who is in state: ", State.keys()[body.current_state])
 				
-				# NEW: Roll for hit success
+				# Check if defending
+				if body.current_state == State.DEFENDING:
+					if body.is_attack_within_parry_arc(self):
+						print(name, " → Target is DEFENDING! Timer: ", body.defend_timer, " Window: ", body.deflect_window)
+						
+						# Timing-based result
+						if body.defend_timer <= body.deflect_window:
+							# DEFLECT (within timing window)
+							print(name, " → DEFLECT!")
+							body.on_deflect_success(self)
+							continue
+						else:
+							# BLOCK (after timing window)
+							print(name, " → BLOCK!")
+							body.on_block_occurred(self)
+							continue
+					else:
+						print(name, " → Attack from behind, defense failed")
+				
+				# Normal hit
 				var success_chance = get_action_success_chance()
 				var hit_succeeded = randf() < success_chance
 				
@@ -517,43 +542,54 @@ func check_hit():
 					print(name, " attack MISSED! (chance was ", success_chance * 100, "%)")
 					continue
 				
-				# Hit succeeded!
 				var damage = get_modified_damage()
 				body.take_damage(damage)
 				body.take_posture_damage(current_attack.posture_damage)
 				
-				# NEW: Smaller stamina restore (attacks cost posture primarily now)
 				stamina = min(stamina + 5.0, max_stamina)
 				stamina_changed.emit(stamina)
 				
 				on_hit_landed(body)
 
-func is_attack_within_parry_arc(attacker: Combatant) -> bool:
-	var to_attacker = attacker.global_position - global_position
-	var angle_to_attacker = atan2(to_attacker.z, to_attacker.x)
-	var angle_diff = abs(angle_difference(facing_angle, angle_to_attacker))
-	return angle_diff <= deg_to_rad(60.0)
-
-func on_parry_success(attacker: Combatant):
-	print(name, " successfully parried!")
+func on_deflect_success(attacker: Combatant):
+	deflect_success.emit()
 	
-	# NEW: Restore more posture on successful parry
-	posture = min(posture + 35.0, max_posture)
-	stamina = min(stamina + 10.0, max_stamina)
+	# Very cheap for defender
+	posture = max(posture - deflect_posture_cost, 0.0)
 	posture_changed.emit(posture)
-	stamina_changed.emit(stamina)
 	
-	attacker.force_stagger()
-	play_parry_effect()
+	# Brief recovery
+	change_state(State.DEFLECT_STUN)
+	
+	# Punish attacker severely
+	attacker.take_posture_damage(40.0)
+	attacker.change_state(State.DEFLECT_PUNISHED)
+	
+	print(name, " PERFECT DEFLECT!")
 
-func on_attack_parried(defender: Combatant):
-	# Lose extra resources when parried
-	posture = max(posture - 30.0, 0.0)
-	stamina = max(stamina - 10.0, 0.0)
-	posture_changed.emit(posture)
-	stamina_changed.emit(stamina)
+## NEW: Block occurred (imperfect timing)
+func on_block_occurred(attacker: Combatant):
+	block_occurred.emit()
 	
-	play_deflected_effect()
+	# Expensive for defender
+	posture = max(posture - block_posture_cost, 0.0)
+	health = max(health - block_health_cost, 0.0)
+	posture_changed.emit(posture)
+	health_changed.emit(health)
+	
+	# Check for death from chip damage
+	if health <= 0:
+		change_state(State.DEAD)
+		died.emit()
+		return
+	
+	# Medium recovery
+	change_state(State.BLOCK_STUN)
+	
+	# Attacker loses minimal posture
+	attacker.take_posture_damage(5.0)
+	
+	print(name, " blocked but took chip damage")
 
 func force_stagger():
 	if current_state == State.DEAD:
@@ -563,8 +599,11 @@ func force_stagger():
 	posture_changed.emit(posture)
 	change_state(State.STAGGERED)
 
-func on_hit_landed(target: Combatant):
-	pass
+func is_attack_within_parry_arc(attacker: Combatant) -> bool:
+	var to_attacker = attacker.global_position - global_position
+	var angle_to_attacker = atan2(to_attacker.z, to_attacker.x)
+	var angle_diff = abs(angle_difference(facing_angle, angle_to_attacker))
+	return angle_diff <= deg_to_rad(60.0)
 
 func is_in_attack_arc(target: Combatant) -> bool:
 	var to_target = target.global_position - global_position
@@ -595,6 +634,7 @@ func take_damage(damage: float, apply_hitstop: bool = true):
 		print(name, " dodged the attack!")
 		return
 	
+	# Damage multipliers for vulnerable states
 	var damage_multiplier = 1.0
 	if current_state == State.STAGGERED:
 		damage_multiplier = 1.5
@@ -651,16 +691,25 @@ func apply_hit_freeze(duration: float):
 func set_facing_angle(angle: float):
 	facing_angle = angle
 
+## Virtual functions - Override in child classes (Player/Enemy)
 func setup_animations():
+	# Override to set up AnimationPlayer and AnimationTree references
 	pass
 
 func play_animation_for_state(state: State):
+	# Override to play appropriate animations for each state
+	pass
+
+func on_hit_landed(target: Combatant):
+	# Override for hit effects (screen shake, particles, sounds)
 	pass
 
 func play_parry_effect():
+	# Override for parry visual/audio feedback
 	pass
 
 func play_deflected_effect():
+	# Override for deflected visual/audio feedback
 	pass
 
 func apply_attack_movement(delta: float):

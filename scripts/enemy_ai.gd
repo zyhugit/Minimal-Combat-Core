@@ -180,7 +180,7 @@ func execute_action(delta: float):
 		
 		"parry":
 			face_target()
-			try_parry()
+			try_defend()
 		
 		"dodge":
 			var dodge_dir = get_dodge_direction()
@@ -306,7 +306,7 @@ func play_animation_for_state(state: State):
 		State.KNOCKDOWN:
 			state_machine.start("death")
 		
-		State.PARRY:
+		State.DEFENDING:
 			state_machine.travel("idle")
 		
 		State.DODGE:

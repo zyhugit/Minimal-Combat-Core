@@ -54,17 +54,13 @@ func _physics_process(delta: float):
 	super._physics_process(delta)
 
 func handle_input(delta: float):
-	# Right-click to set facing direction - use just_pressed to make it snappy
+	# Right-click to set facing direction
 	if Input.is_action_just_pressed("face_mouse"):
 		update_facing_from_mouse()
 	
-	# Movement (only in IDLE or MOVE states)
-	if current_state == State.IDLE or current_state == State.MOVE:
+	# Movement (only in IDLE, MOVE, or DEFENDING states)
+	if current_state == State.IDLE or current_state == State.MOVE or current_state == State.DEFENDING:
 		handle_movement(delta)
-	
-	# Parry
-	if Input.is_action_just_pressed("parry"):
-		try_parry()
 	
 	# Dodge
 	if Input.is_action_just_pressed("dodge"):
@@ -72,7 +68,6 @@ func handle_input(delta: float):
 		var dodge_dir = Vector3.ZERO
 		
 		if input_dir.length() > 0:
-			# Dodge in movement direction (camera-relative)
 			var cam_forward = -camera.global_transform.basis.z
 			var cam_right = camera.global_transform.basis.x
 			cam_forward.y = 0
@@ -83,7 +78,7 @@ func handle_input(delta: float):
 		
 		try_dodge(dodge_dir)
 	
-	# Heavy attack (check FIRST - has priority)
+	# Heavy attack
 	if Input.is_action_just_pressed("attack_heavy"):
 		update_facing_from_mouse()
 		if heavy_attack:
@@ -107,6 +102,16 @@ func handle_input(delta: float):
 	if buffered_attack and (current_state == State.IDLE or current_state == State.MOVE):
 		try_attack(buffered_attack)
 		buffered_attack = null
+	
+	# DEFENSE: Simple press/release logic
+	if Input.is_action_pressed("parry"):
+		# Button held - start/maintain defending
+		if current_state == State.IDLE or current_state == State.MOVE:
+			try_defend()
+	else:
+		# Button released - stop defending
+		if current_state == State.DEFENDING:
+			stop_defend()
 
 func handle_movement(delta: float):
 	var input_dir = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
@@ -177,9 +182,6 @@ func play_animation_for_state(state: State):
 	if not state_machine:
 		return
 	
-	# CRITICAL FIX: Don't use animation_player.play() - it causes errors
-	# The AnimationTree manages the AnimationPlayer, so we only use state_machine
-	
 	match state:
 		State.IDLE:
 			state_machine.travel("idle")
@@ -188,17 +190,22 @@ func play_animation_for_state(state: State):
 			state_machine.travel("walk")
 		
 		State.ATTACK_WINDUP:
-			# Use start() to force restart attacks
 			if current_attack == heavy_attack:
 				state_machine.start("heavy attack")
 			else:
+				print("playing light attack animation")
 				state_machine.start("light attack")
 		
-		State.ATTACK_ACTIVE, State.ATTACK_RECOVERY:
-			# Don't change animation - let attack finish
-			pass
-		
 		State.HIT_STUN:
+			state_machine.start("hit reaction")
+		
+		State.BLOCK_STUN:
+			state_machine.start("hit reaction")
+		
+		State.DEFLECT_STUN:
+			state_machine.travel("idle")
+		
+		State.DEFLECT_PUNISHED:
 			state_machine.start("hit reaction")
 		
 		State.STAGGERED:
@@ -207,8 +214,8 @@ func play_animation_for_state(state: State):
 		State.KNOCKDOWN:
 			state_machine.start("death")
 		
-		State.PARRY:
-			state_machine.travel("idle")
+		State.DEFENDING:
+			state_machine.travel("idle")  # Can add guard animation later
 		
 		State.DODGE:
 			state_machine.travel("walk")

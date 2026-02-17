@@ -79,7 +79,7 @@ func _on_state_changed(new_state: Combatant.State):
 		Combatant.State.HIT_STUN: "Hit!",
 		Combatant.State.STAGGERED: "STAGGERED!",
 		Combatant.State.KNOCKDOWN: "KNOCKED DOWN!",
-		Combatant.State.PARRY: "Parrying...",
+		Combatant.State.DEFENDING: "Parrying...",
 		Combatant.State.DODGE: "Dodging!",
 		Combatant.State.DEAD: "DEAD"
 	}
@@ -90,7 +90,7 @@ func _on_state_changed(new_state: Combatant.State):
 	match new_state:
 		Combatant.State.STAGGERED, Combatant.State.KNOCKDOWN:
 			status_label.modulate = Color.RED
-		Combatant.State.PARRY:
+		Combatant.State.DEFENDING:
 			status_label.modulate = Color.CYAN
 		Combatant.State.DODGE:
 			status_label.modulate = Color.GREEN
